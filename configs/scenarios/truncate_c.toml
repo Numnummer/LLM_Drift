@@ -1,0 +1,7 @@
+# D8: с шага 4 скаффолдинг держит в контексте системный промпт без C.
+spec = "portfolio"
+num_steps = 12
+
+[gde]
+distractions = true
+truncate_constraints_at = 4

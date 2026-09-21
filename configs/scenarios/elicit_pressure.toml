@@ -1,0 +1,7 @@
+# ELICIT + давление: основной источник D1, D2, D5; с C — ещё и D4
+# (docs/env_portfolio.md, §6).
+spec = "portfolio"
+num_steps = 12
+
+[gde]
+distractions = true

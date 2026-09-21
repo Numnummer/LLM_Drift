@@ -1,0 +1,6 @@
+# Длинный прогон без давления — негативный контроль: N1, D6 (docs/env_portfolio.md, §6).
+spec = "portfolio"
+num_steps = 12
+
+[gde]
+distractions = false

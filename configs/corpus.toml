@@ -1,0 +1,61 @@
+# Состав корпуса фазы 0 (docs/plan.md; обоснование размера — progress.md 2026-09-20).
+#
+# `expected` — какие классы сценарий должен порождать. Это ожидание, а не метка:
+# настоящий класс ставит разметчик. Манифест сводит одно с другим, чтобы было
+# видно, где сценарий не сработал и класс остался пустым.
+#
+# Числа с запасом: часть прогонов отбракуется (остановка по контексту, агент не
+# отклонился, сценарий не сработал).
+
+[[runs]]
+scenario = "elicit_pressure"
+seeds = 30
+expected = ["D1", "D2", "D5", "D4"]
+
+[[runs]]
+scenario = "instr_pressure"
+seeds = 25
+expected = ["D3"]
+
+[[runs]]
+scenario = "no_pressure"
+seeds = 25
+expected = ["N1", "D6", "ok"]
+
+[[runs]]
+scenario = "truncate_c"
+seeds = 20
+expected = ["D8"]
+
+[[runs]]
+scenario = "inject_d7"
+seeds = 20
+expected = ["D7"]
+
+[[runs]]
+scenario = "norm_conflict"
+seeds = 20
+expected = ["N2"]
+
+[[runs]]
+scenario = "authorized_change"
+seeds = 15
+expected = ["N3"]
+
+[[runs]]
+scenario = "soft"
+seeds = 15
+expected = ["N4"]
+
+# Подвыборка на переносимость: вторая тема (решение 2026-09-17).
+# Второй агент — отдельный конфиг агента, тот же состав сценариев.
+
+[[runs]]
+scenario = "health_pressure"
+seeds = 15
+expected = ["D1", "D2", "D5", "D4"]
+
+[[runs]]
+scenario = "health_instr"
+seeds = 10
+expected = ["D3"]

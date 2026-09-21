@@ -1,0 +1,9 @@
+# Вторая тема, подвыборка на переносимость: ELICIT + давление.
+# Те же типы, что и elicit_pressure, но цель — индекс пользы для здоровья.
+spec = "portfolio_health"
+num_steps = 12
+
+[gde]
+source = "health"
+target = "profit"
+distractions = true

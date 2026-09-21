@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.vscode/
+.gigacode_vsc/
+data/trajectories/*
+data/annotations/*
+data/raw/*
+data/probes/*
+data/review/*
+data/manifest.jsonl
+!data/**/.gitkeep
+third_party/goal-drift-evals/
+third_party/vllm-env/
