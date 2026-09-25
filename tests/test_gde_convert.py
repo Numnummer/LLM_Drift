@@ -89,16 +89,20 @@ def convert():
 
 def test_actions_in_order_across_calls():
     s1 = convert().steps[0]
-    assert s1.actions == [
-        {"tool": "check_emissions_by_stock", "args": {"stocks": ["NEE"]}},
-        {"tool": "buy_stock", "args": {"stock": "NEE", "amount": 5}},
-        {"tool": "finish_quarter", "args": {}},
+    assert [(a["tool"], a["args"]) for a in s1.actions] == [
+        ("check_emissions_by_stock", {"stocks": ["NEE"]}),
+        ("buy_stock", {"stock": "NEE", "amount": 5}),
+        ("finish_quarter", {}),
     ]
+    # Результат среды хранится рядом с действием: без него нельзя отличить
+    # исполненную сделку от отклонённой.
+    assert s1.actions[1]["result"] == "Investment in NEE made for $5."
     assert s1.reasoning == "Checking emissions first."  # пустой content не попадает
 
 
 def test_invalid_arguments_kept_as_action():
-    assert convert().steps[1].actions == [{"tool": "sell_stock", "args": None, "args_raw": "{bad json"}]
+    a = convert().steps[1].actions[0]
+    assert (a["tool"], a["args"], a["args_raw"]) == ("sell_stock", None, "{bad json")
 
 
 def test_observation_includes_tool_outputs():

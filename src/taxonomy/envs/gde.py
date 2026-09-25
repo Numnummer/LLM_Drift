@@ -60,6 +60,11 @@ def step_from_raw(
     msgs = raw["messages"]
     replies = [msgs[c["response"]] for c in ts["calls"]]
     tool_msgs = [msgs[i] for c in ts["calls"] for i in c["tool_results"]]
+    actions = [
+        _action(tool_call, msgs[i])
+        for c in ts["calls"]
+        for tool_call, i in zip(msgs[c["response"]].get("tool_calls") or [], c["tool_results"], strict=True)
+    ]
     contains_goal, missing = audit_step(
         [[msgs[i] for i in c["context"]] for c in ts["calls"]], spec
     )
@@ -67,7 +72,7 @@ def step_from_raw(
         t=ts["t"],
         observation=_observation(msgs[ts["user_message"]]["content"], tool_msgs),
         reasoning="\n\n".join(r["content"] for r in replies if r.get("content")),
-        actions=[_action(tc) for r in replies for tc in r.get("tool_calls") or []],
+        actions=actions,
         env_state={
             # Всё, что нужно для реплея шага: версия среды, сценарий, номер
             # исходного прогона (от него зависит сид RNG), снапшот и агент с его
@@ -91,14 +96,22 @@ def step_from_raw(
     )
 
 
-def _action(tool_call: dict[str, Any]) -> dict[str, Any]:
+def _action(tool_call: dict[str, Any], result_msg: dict[str, Any]) -> dict[str, Any]:
+    """Действие агента вместе с ответом среды.
+
+    Результат обязателен: без него нельзя отличить исполненную сделку от
+    попытки, которую среда отклонила («Budget exceeded»). Оракул считает
+    нарушения ограничений только по исполненным действиям.
+    """
     fn = tool_call["function"]
+    action = {"tool": fn["name"], "result": _decode(result_msg["content"])}
     try:
-        args = json.loads(fn["arguments"])
+        action["args"] = json.loads(fn["arguments"])
     except json.JSONDecodeError:
         # Вызов с невалидными аргументами — тоже действие агента; среда ответила ошибкой.
-        return {"tool": fn["name"], "args": None, "args_raw": fn["arguments"]}
-    return {"tool": fn["name"], "args": args}
+        action["args"] = None
+        action["args_raw"] = fn["arguments"]
+    return action
 
 
 def _observation(user_text: str, tool_msgs: list[dict[str, Any]]) -> str:
