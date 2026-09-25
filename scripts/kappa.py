@@ -7,6 +7,13 @@
     uv run python scripts/kappa.py data/annotations/
 
 Ожидается, что в каталоге лежат ann_<annotator>.jsonl с полями схемы Annotation.
+
+Разметка двухуровневая: `label` (по первому отклонению) и `dominant_label` (по
+шагу наибольшего отклонения от цели). Согласие считается по каждой метке
+отдельно: смешивание двух разных вопросов в один κ ничего не измеряет. Пустая
+`dominant_label` означает «явление одно» и приравнивается к `label`. Таблица
+переходов «метка → преобладающая» показывает, как часто первое отклонение
+прячет главное явление.
 """
 
 from __future__ import annotations
@@ -24,8 +31,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from taxonomy.schema import DRIFT_LABELS, Label  # noqa: E402
 
 
-def load(path: Path) -> dict[str, str]:
-    """traj_id -> метка. Пропущенные (skipped) траектории не учитываются."""
+def load(path: Path, field: str = "label") -> dict[str, str]:
+    """traj_id -> метка из поля `field`. Пропущенные (skipped) не учитываются.
+
+    Для `dominant_label` пустое значение заменяется основной меткой.
+    """
     out: dict[str, str] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -33,8 +43,17 @@ def load(path: Path) -> dict[str, str]:
         rec = json.loads(line)
         if rec.get("skipped"):
             continue
-        out[rec["traj_id"]] = rec["label"]
+        out[rec["traj_id"]] = rec.get(field) or rec["label"]
     return out
+
+
+def transitions(first: dict[str, str], dominant: dict[str, str], name: str) -> None:
+    """Таблица «метка → преобладающая» одного разметчика."""
+    moved = Counter((first[t], dominant[t]) for t in first if dominant[t] != first[t])
+    n_moved = sum(moved.values())
+    print(f"{name}: преобладающая отличается от основной в {n_moved} из {len(first)}")
+    for (x, y), n in moved.most_common():
+        print(f"  {x} -> {y}: {n}")
 
 
 def to_binary(label: str) -> str:
@@ -98,15 +117,21 @@ def main() -> None:
     if len(files) < 2:
         raise SystemExit(f"нужно минимум два файла ann_*.jsonl, найдено {len(files)}")
 
-    for i in range(len(files)):
-        for j in range(i + 1, len(files)):
-            report(
-                load(files[i]),
-                load(files[j]),
-                files[i].stem.removeprefix("ann_"),
-                files[j].stem.removeprefix("ann_"),
-            )
-            print("-" * 60)
+    names = [f.stem.removeprefix("ann_") for f in files]
+    first = [load(f) for f in files]
+    dominant = [load(f, "dominant_label") for f in files]
+
+    for title, labels in (("основная метка (первое отклонение)", first),
+                          ("преобладающая метка (наибольшее отклонение от цели)", dominant)):
+        print(f"=== {title} ===")
+        for i in range(len(files)):
+            for j in range(i + 1, len(files)):
+                report(labels[i], labels[j], names[i], names[j])
+                print("-" * 60)
+
+    print("=== переходы «метка → преобладающая» ===")
+    for name, a, b in zip(names, first, dominant):
+        transitions(a, b, name)
 
 
 if __name__ == "__main__":

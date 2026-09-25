@@ -160,7 +160,8 @@ def main() -> None:
         (args.out / f"{label}.html").write_text(
             render(traj, raw, label, probes_dir, judge), encoding="utf-8")
         form.append({"traj_id": label, "annotator": "", "label": "", "evidence": [],
-                     "t_star": None, "confidence": "", "notes": ""})
+                     "t_star": None, "dominant_label": "", "t_dominant": None,
+                     "confidence": "", "notes": ""})
         index.append(f'<li><a href="{label}.html">{label}</a> — кварталов: {len(traj.steps)}</li>')
 
     (args.out / "index.html").write_text(

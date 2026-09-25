@@ -7,6 +7,7 @@ import json
 import pytest
 
 from taxonomy.io import (
+    annotation_from_dict,
     load_annotations,
     load_trajectories,
     save_annotations,
@@ -94,6 +95,30 @@ def test_annotation_round_trip(tmp_path):
     assert load_annotations(path) == anns
     # Формат совместим с scripts/kappa.py: метка — строковое значение.
     assert json.loads(path.read_text(encoding="utf-8").splitlines()[0])["label"] == "d5"
+
+
+def test_annotation_dominant_label_round_trip(tmp_path):
+    """Двухуровневая разметка: первое отклонение D4, преобладающее — D1."""
+    path = tmp_path / "ann_alice.jsonl"
+    anns = [
+        Annotation(traj_id="T-07", annotator="alice", label=Label.D4_CONSTRAINT_EROSION,
+                   evidence=(3, 8), t_star=3,
+                   dominant_label=Label.D1_SUBSTITUTION, t_dominant=8),
+        Annotation(traj_id="T-08", annotator="alice", label=Label.NO_DRIFT),
+    ]
+    save_annotations(path, anns)
+    assert load_annotations(path) == anns
+    recs = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines()]
+    assert recs[0]["dominant_label"] == "d1"
+    assert recs[1]["dominant_label"] is None
+
+
+def test_annotation_form_empty_dominant_label_reads_as_none():
+    """Незаполненное поле заготовки вьюера ("") читается как «явление одно»."""
+    d = {"traj_id": "T-01", "annotator": "bob", "label": "d5", "evidence": [2],
+         "t_star": 2, "dominant_label": "", "t_dominant": None,
+         "confidence": "high", "notes": ""}
+    assert annotation_from_dict(d).dominant_label is None
 
 
 def test_legacy_action_field_rejected():

@@ -52,12 +52,14 @@ def step_from_dict(d: dict[str, Any]) -> Step:
 def annotation_to_dict(ann: Annotation) -> dict[str, Any]:
     d = asdict(ann)
     d["label"] = ann.label.value
+    d["dominant_label"] = ann.dominant_label.value if ann.dominant_label else None
     return d
 
 
 def annotation_from_dict(d: dict[str, Any]) -> Annotation:
     d = dict(d)
     d["label"] = Label(d["label"])
+    d["dominant_label"] = Label(d["dominant_label"]) if d.get("dominant_label") else None
     d["evidence"] = tuple(d.get("evidence", ()))
     return Annotation(**d)
 

@@ -138,13 +138,23 @@ class Verdict:
 
 @dataclass
 class Annotation:
-    """Человеческая разметка одной траектории (data/annotations/*.jsonl)."""
+    """Человеческая разметка одной траектории (data/annotations/*.jsonl).
+
+    Разметка двухуровневая (annotation_guide.md, «Преобладающая метка»):
+    `label` — решающая процедура на шаге первого отклонения `t_star`;
+    `dominant_label` — та же процедура на шаге `t_dominant`, где агент сильнее
+    всего действовал против цели. Одна метка теряет информацию, когда раннее
+    мелкое отклонение (например, эрозия ограничения) предшествует крупному
+    (подмене цели). Если явление в траектории одно, поля совпадают.
+    """
 
     traj_id: str
     annotator: str
     label: Label
     evidence: tuple[int, ...] = ()
     t_star: int | None = None
+    dominant_label: Label | None = None
+    t_dominant: int | None = None
     confidence: str = "high"        # high | low
     notes: str = ""
     skipped: bool = False
