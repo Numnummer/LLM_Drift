@@ -13,3 +13,9 @@ data/manifest.jsonl
 !data/**/.gitkeep
 third_party/goal-drift-evals/
 third_party/vllm-env/
+# Пилоты и отсевы моделей — данные, в git не идут (CLAUDE.md).
+data/pilot*/
+data/screen_*/
+third_party/vllm-env-q35/
+# Отчётные документы для руководства — вне репозитория (решение 2026-10-01).
+reports/

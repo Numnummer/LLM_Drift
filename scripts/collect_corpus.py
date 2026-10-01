@@ -33,8 +33,8 @@ from taxonomy.io import load_trajectories  # noqa: E402
 from taxonomy.schema import DEFAULT_THRESHOLDS  # noqa: E402
 
 
-def summarize(data_dir: Path, traj_id: str, judge: PortfolioJudge) -> dict[str, Any]:
-    """Что получилось в траектории: шаги, отклонение, признаки поломки агента."""
+def summarize(data_dir: Path, traj_id: str, judge: PortfolioJudge, min_usable: int) -> dict[str, Any]:
+    """Что получилось в траектории: шаги, отклонение, пригодность для разметки."""
     traj = load_trajectories(data_dir / "trajectories" / f"{traj_id}.jsonl")[0]
     deviating = [s.t for s in traj.steps
                  if judge.alignment(s, traj.spec) < DEFAULT_THRESHOLDS.aligned_threshold]
@@ -42,10 +42,12 @@ def summarize(data_dir: Path, traj_id: str, judge: PortfolioJudge) -> dict[str, 
         "steps": len(traj.steps),
         "t_star": deviating[0] if deviating else None,
         "deviating_steps": len(deviating),
+        "usable": len(traj.steps) >= min_usable,
     }
 
 
-def collect(plan: list[dict[str, Any]], data_dir: Path, per_scenario: int | None, dry_run: bool) -> None:
+def collect(plan: list[dict[str, Any]], data_dir: Path, per_scenario: int | None, dry_run: bool,
+            min_usable: int) -> None:
     judge = PortfolioJudge()
     manifest_path = data_dir / "manifest.jsonl"
     done = set()
@@ -62,7 +64,7 @@ def collect(plan: list[dict[str, Any]], data_dir: Path, per_scenario: int | None
                 if traj_id not in done:  # собрано раньше, но не попало в манифест
                     record = {"traj_id": traj_id, "scenario": scenario, "seed": seed,
                               "expected": expected, "stopped": None,
-                              **summarize(data_dir, traj_id, judge)}
+                              **summarize(data_dir, traj_id, judge, min_usable)}
                     with manifest_path.open("a", encoding="utf-8") as f:
                         f.write(json.dumps(record, ensure_ascii=False) + "\n")
                     stats[scenario].append(record)
@@ -85,7 +87,7 @@ def collect(plan: list[dict[str, Any]], data_dir: Path, per_scenario: int | None
                 "traj_id": traj_id, "scenario": scenario, "seed": seed, "expected": expected,
                 "stopped": (summary["stopped"] or {}).get("reason"),
                 "seconds": round(time.monotonic() - start, 1),
-                **summarize(data_dir, traj_id, judge),
+                **summarize(data_dir, traj_id, judge, min_usable),
             }
             with manifest_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -95,13 +97,15 @@ def collect(plan: list[dict[str, Any]], data_dir: Path, per_scenario: int | None
 
     if dry_run:
         return
-    print(f"\n{'сценарий':<20} {'собрано':>8} {'ср. шагов':>10} {'с отклонением':>14} {'оборвано':>9}")
+    print(f"\n{'сценарий':<20} {'собрано':>8} {'ср. шагов':>10} {'с отклонением':>14} {'оборвано':>9} "
+          f"{'пригодно':>9}")
     for scenario, records in sorted(stats.items()):
         n = len(records)
         avg = sum(r["steps"] for r in records) / n if n else 0
         with_dev = sum(r["t_star"] is not None for r in records)
         stopped = sum(bool(r["stopped"]) for r in records)
-        print(f"{scenario:<20} {n:>8} {avg:>10.1f} {with_dev:>14} {stopped:>9}")
+        usable = sum(r.get("usable", True) for r in records)
+        print(f"{scenario:<20} {n:>8} {avg:>10.1f} {with_dev:>14} {stopped:>9} {usable:>9}")
     print(f"\nвсего {(time.monotonic() - started) / 60:.0f} мин, манифест: {manifest_path}")
 
 
@@ -114,8 +118,8 @@ def main() -> None:
     args = ap.parse_args()
 
     with args.plan.open("rb") as f:
-        plan = tomllib.load(f)["runs"]
-    collect(plan, args.data_dir, args.per_scenario, args.dry_run)
+        cfg = tomllib.load(f)
+    collect(cfg["runs"], args.data_dir, args.per_scenario, args.dry_run, cfg.get("min_usable_steps", 10))
 
 
 if __name__ == "__main__":

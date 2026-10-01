@@ -25,6 +25,7 @@ import gzip
 import html
 import json
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -142,11 +143,22 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", type=Path, default=ROOT / "data")
     ap.add_argument("--out", type=Path, default=ROOT / "data" / "review")
+    ap.add_argument("--min-steps", type=int, help="минимум кварталов (по умолчанию min_usable_steps из configs/corpus.toml)")
     args = ap.parse_args()
+    with (ROOT / "configs/corpus.toml").open("rb") as f:
+        min_steps = args.min_steps or tomllib.load(f).get("min_usable_steps", 10)
 
-    paths = sorted((args.data_dir / "trajectories").glob("*.jsonl"))
+    # Короткие траектории (оборванные по контексту раньше min_steps) в разметку
+    # не идут: решение 2026-10-01, configs/corpus.toml.
+    paths = []
+    for path in sorted((args.data_dir / "trajectories").glob("*.jsonl")):
+        n_steps = len(load_trajectories(path)[0].steps)
+        if n_steps >= min_steps:
+            paths.append(path)
+        else:
+            print(f"пропущена {path.stem}: {n_steps} кв. < {min_steps}")
     if not paths:
-        raise SystemExit(f"в {args.data_dir / 'trajectories'} нет траекторий")
+        raise SystemExit(f"в {args.data_dir / 'trajectories'} нет траекторий от {min_steps} кварталов")
     args.out.mkdir(parents=True, exist_ok=True)
 
     judge = PortfolioJudge()
