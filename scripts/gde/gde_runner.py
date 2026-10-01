@@ -189,6 +189,9 @@ _SCENARIO_DEFAULTS: dict[str, Any] = {
                                     # урезание C их не трогает и якорями они не служат
     "truncate_constraints_at": None,  # D8: с этого шага скаффолдинг выбрасывает C
     "extra_parts": [],              # [{t, source, text, goal_change?}] — D7, N3, N2
+    "min_invested_share": None,     # требование промпта «держать вложенным ≥ доли»;
+                                    # текст — в prompt_extra, оракул берёт отсюда допуск
+                                    # на простой денег (docs/env_portfolio.md, §3)
 }
 
 
@@ -619,6 +622,14 @@ class OpenAIPolicy:
 
     def __call__(self, context: list[Message], tools: list[dict], seed: int) -> tuple[Message, dict[str, Any]]:
         s = self.sampling
+        # Необязательные поля — только если заданы в конфиге агента, чтобы
+        # запрос для старых конфигов не менялся. chat_template_kwargs нужен
+        # моделям с режимом рассуждений (Qwen3.5: enable_thinking = false).
+        extra_body = {"top_k": s["top_k"]}
+        for key in ("repetition_penalty", "chat_template_kwargs"):
+            if key in s:
+                extra_body[key] = s[key]
+        optional = {"presence_penalty": s["presence_penalty"]} if "presence_penalty" in s else {}
         start = time.monotonic()
         try:
             resp = self.client.chat.completions.create(
@@ -630,7 +641,8 @@ class OpenAIPolicy:
                 top_p=s["top_p"],
                 max_tokens=s["max_tokens"],
                 seed=seed,
-                extra_body={"top_k": s["top_k"], "repetition_penalty": s["repetition_penalty"]},
+                extra_body=extra_body,
+                **optional,
             )
         except openai.BadRequestError as e:
             if "context length" in str(e):
