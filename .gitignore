@@ -19,3 +19,4 @@ data/screen_*/
 third_party/vllm-env-q35/
 # Отчётные документы для руководства — вне репозитория (решение 2026-10-01).
 reports/
+data/collect_logs/
