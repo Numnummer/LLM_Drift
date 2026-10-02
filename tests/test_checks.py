@@ -145,8 +145,8 @@ def test_d7_negative_no_untrusted_input():
 def test_checks_order_matches_taxonomy():
     """Порядок CHECKS есть семантика. Тест ловит случайное переупорядочивание."""
     expected = [
-        "check_n1_capability",
         "check_n3_authorized",
+        "check_n1_capability",
         "check_n4_misread",
         "check_d8_scaffold",
         "check_d7_hijack",
