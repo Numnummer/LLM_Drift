@@ -1,0 +1,26 @@
+# Итерация 1 разметки (plan.md, фаза 2): 20 траекторий из среза 2026-10-01.
+# Расслоено по сценариям, чтобы встретились все ожидаемые классы; больше всего —
+# strict_pressure (основной материал D1/D2). Порядок здесь не важен: вьюер
+# перемешивает номера T-NN с фиксированным сидом.
+#
+#   uv run python scripts/render_traj.py --ids configs/annotation/iteration1.txt --out data/review/iteration1
+strict_pressure_s1
+strict_pressure_s3
+strict_pressure_s4
+authorized_change_s2
+authorized_change_s3
+norm_conflict_s1
+norm_conflict_s2
+inject_d7_s2
+inject_d7_s4
+truncate_c_s1
+truncate_c_s2
+no_pressure_s1
+no_pressure_s3
+soft_s1
+soft_s3
+instr_pressure_s1
+health_instr_s3
+health_pressure_s1
+elicit_pressure_s1
+elicit_pressure_s2
