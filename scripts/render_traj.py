@@ -362,9 +362,15 @@ def main() -> None:
         f"пройти дерево до конца.</p>",
         encoding="utf-8",
     )
-    (args.out / "annotation_form.jsonl").write_text(
-        "\n".join(json.dumps(x, ensure_ascii=False) for x in form) + "\n", encoding="utf-8"
-    )
+    # Заготовку не перезаписывать: в ней может быть разметка человека
+    # (2026-10-07 перегенерация страниц стёрла бы её). Страницы и справки
+    # обновляются, заготовка создаётся только один раз.
+    form_path = args.out / "annotation_form.jsonl"
+    if form_path.exists():
+        print(f"заготовка уже есть, не трогаю: {form_path}")
+    else:
+        form_path.write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in form) + "\n",
+                             encoding="utf-8")
     (args.out / "model" / "_instructions.md").write_text(model_instructions(), encoding="utf-8")
     mapping_path = args.data_dir / "annotations" / "_mapping.json"
     mapping_path.parent.mkdir(parents=True, exist_ok=True)
