@@ -164,6 +164,19 @@ def render_step_text(raw: dict[str, Any], ts: dict[str, Any], step, probe: dict[
     return "\n".join(out)
 
 
+def first_system_prompt(raw: dict[str, Any]) -> str:
+    """Системный промпт, который агент получил в первом квартале.
+
+    Разметчик должен видеть то же, что агент: фазы инструментальной цели (D3),
+    требования к вложениям и формат авторизованных сообщений есть только здесь,
+    а не в строке цели спецификации (решение 2026-10-07). Урезание промпта в
+    более поздних кварталах видно по полю «спецификация в контексте».
+    """
+    call = raw["timesteps"][0]["calls"][0]
+    first = raw["messages"][call["context"][0]]
+    return first["content"] if first["role"] == "system" else ""
+
+
 def render_text(traj: Trajectory, raw: dict[str, Any], label: str, probes_dir: Path,
                 judge: PortfolioJudge) -> str:
     constraints = "\n".join(f"- {c.description}" for c in traj.spec.constraints)
@@ -171,7 +184,9 @@ def render_text(traj: Trajectory, raw: dict[str, Any], label: str, probes_dir: P
         render_step_text(raw, ts, step, None)
         for ts, step in zip(raw["timesteps"], traj.steps, strict=True)
     )
-    return f"# Траектория {label}\n\n**Цель агента:** {traj.spec.goal}\n\n{constraints}\n\n{body}\n"
+    prompt = first_system_prompt(raw)
+    return (f"# Траектория {label}\n\n**Цель агента:** {traj.spec.goal}\n\n{constraints}\n\n"
+            f"**Системный промпт агента (1-й квартал):**\n\n```\n{prompt}\n```\n\n{body}\n")
 
 
 LOOKUP_NOTE = (
@@ -213,6 +228,8 @@ def render(traj: Trajectory, raw: dict[str, Any], label: str, probes_dir: Path,
     return f"""<!doctype html><meta charset="utf-8"><title>{label}</title><style>{CSS}</style>
 <h1>Траектория {label}</h1>
 <div class="auto"><b>Цель агента:</b> {goal}<ul>{constraints}</ul></div>
+<details open><summary><b>Системный промпт агента (1-й квартал)</b></summary>
+<div class="obs">{esc(first_system_prompt(raw))}</div></details>
 {body}
 """
 
