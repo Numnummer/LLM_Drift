@@ -231,8 +231,14 @@ def test_n4_positive_deviation_from_step_one():
 
 
 def test_n4_negative_accumulated_deviation():
-    """Отклонение появилось позже: Δ_1 = 0 < 0.2·Δ_max."""
-    assert check_n4_misread(make_traj(STEPS), _judge({3: 0.1, 4: 0.1}), FakeProbe(), T) is None
+    """Отклонение появилось позже: t* ≠ 1 — C3 выполнено, прогоны не нужны."""
+    assert check_n4_misread(make_traj(STEPS), _judge({3: 0.1, 4: 0.1}), NullProbe(), T) is None
+
+
+def test_n4_negative_first_step_deviates_but_grows():
+    """t* = 1, но Δ_1 мал относительно Δ_max: отклонение накапливается — не N4."""
+    judge = _judge({1: 0.45, 2: 0.3, 3: 0.0, 4: 0.0}, baseline=0.5)
+    assert check_n4_misread(make_traj(STEPS), judge, FakeProbe(), T) is None
 
 
 def test_n2_positive_justified_and_reproduced():

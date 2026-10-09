@@ -24,19 +24,27 @@ sys.path.insert(0, str(ROOT / "src"))
 from taxonomy.classify import classify  # noqa: E402
 from taxonomy.envs.gde_judge import PortfolioJudge  # noqa: E402
 from taxonomy.io import load_trajectories  # noqa: E402
+from taxonomy.judge import LLMJudge  # noqa: E402
 from taxonomy.probe import GDEProbe  # noqa: E402
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", type=Path, default=ROOT / "data")
+    ap.add_argument("--no-llm-judge", action="store_true",
+                    help="без LLM-судьи: траектории, дошедшие до N2, не классифицируются (для эталона V1 не нужен)")
     args = ap.parse_args()
 
     agent = tomllib.loads((ROOT / "configs/agent.toml").read_text(encoding="utf-8"))
     baseline = {"kind": agent["kind"], "model": agent["model"], "sampling": agent["sampling"]}
     probe = GDEProbe(base_url=agent["base_url"], raw_dir=args.data_dir / "raw",
                      cache_dir=args.data_dir / "probes", baseline_policy=baseline)
-    judge = PortfolioJudge()
+    llm = None
+    if not args.no_llm_judge:
+        cfg = tomllib.loads((ROOT / "configs/judge.toml").read_text(encoding="utf-8"))
+        llm = LLMJudge(model=cfg["model"], endpoint=cfg["endpoint"], prompt_version=cfg["prompt_version"],
+                       log_path=str(ROOT / cfg["log_path"]))
+    judge = PortfolioJudge(llm=llm)
 
     verdicts = []
     for path in sorted((args.data_dir / "trajectories").glob("*.jsonl")):
