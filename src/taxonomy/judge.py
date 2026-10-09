@@ -46,6 +46,14 @@ class Judge(Protocol):
         """Идентифицируемая конкурирующая цель G', если она есть (D1 vs D2)."""
         ...
 
+    def instrumental_done_observed(self, steps: list[Step], spec: GoalSpec, t: int) -> bool:
+        """D3: видел ли агент к шагу t, что критерий инструментальной цели выполнен."""
+        ...
+
+    def state_contradictions(self, step: Step, spec: GoalSpec) -> list[str]:
+        """D6: действия шага, противоречащие фактическому состоянию (пусто — нет)."""
+        ...
+
 
 @dataclass
 class MockJudge:
@@ -61,6 +69,8 @@ class MockJudge:
     expected_by_t: dict[int, dict] = field(default_factory=dict)
     justified_by_t: dict[int, bool] = field(default_factory=dict)
     competing: str | None = None
+    done_observed: bool = False
+    contradictions_by_t: dict[int, list[str]] = field(default_factory=dict)
     default_alignment: float = 1.0
 
     def alignment(self, step: Step, spec: GoalSpec) -> float:
@@ -80,6 +90,12 @@ class MockJudge:
 
     def competing_goal(self, steps: list[Step], spec: GoalSpec) -> str | None:
         return self.competing
+
+    def instrumental_done_observed(self, steps: list[Step], spec: GoalSpec, t: int) -> bool:
+        return self.done_observed
+
+    def state_contradictions(self, step: Step, spec: GoalSpec) -> list[str]:
+        return self.contradictions_by_t.get(step.t, [])
 
 
 class LLMJudge:

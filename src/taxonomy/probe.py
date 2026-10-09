@@ -123,7 +123,7 @@ class GDEProbe:
     # N2: прямой перезапрос
     # ------------------------------------------------------------------
 
-    def requery(self, traj: Trajectory, t: int) -> str:
+    def requery(self, traj: Trajectory, t: int) -> str | None:
         """Спросить агента в контексте шага t, почему он поступил именно так.
 
         Контекст — история на момент последнего вызова модели в этом квартале
@@ -137,6 +137,9 @@ class GDEProbe:
 
         raw = load_raw(self.raw_dir / f"{traj.traj_id}.json.gz")
         policy = raw["policy"]
+        if policy["kind"] == "planted":
+            # Агента по сценарию спросить нельзя: N2 для эталона V1 не проверяется.
+            return None
         if policy["kind"] != "openai":
             raise NotImplementedError(f"перезапрос не определён для агента {policy['kind']!r}")
         ts = next(x for x in raw["timesteps"] if x["t"] == t)
