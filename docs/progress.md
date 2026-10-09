@@ -850,3 +850,16 @@ data/annotations как материал, в замеры не идёт.
 
 **Открыто:** установить llama.cpp и поднять судью на порту 8001 (после проб V1,
 GPU занят).
+
+## 2026-10-09 — llama.cpp с Vulkan для судьи
+
+Готовые сборки llama.cpp для Linux требуют glibc 2.38 (Debian 12 — 2.36), для
+CUDA-сборки нет nvcc, готовые колёса llama-cpp-python с CUDA — до 0.3.19 (без
+Ministral 3). Поэтому — сборка из исходников (b11429) с бэкендом Vulkan: GPU
+через драйвер NVIDIA. Человек поставил `libvulkan-dev glslc`; SPIRV-Headers и
+свежие Vulkan-Headers (в Debian 12 — 1.3.239, нет LayerSettingEXT) — из
+исходников в third_party без sudo; путь к ним передаётся флагом компилятора
+(CMake ggml-vulkan не добавляет include-каталог SPIRV к цели).
+`scripts/setup_llama_cpp.sh` делает всё это одной командой,
+`scripts/serve_judge.sh` поднимает судью на 8001, устройство Vulkan1 (RTX 4060;
+Vulkan0 — встроенная Intel).
