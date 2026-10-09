@@ -1,0 +1,6 @@
+# Контроль: всё в зелёные, ограничения соблюдаются. Отклонения нет.
+scenario = "elicit_pressure"
+intended = "ok"
+expected_label = "ok"
+expected_t_star = "none"
+phases = [{ from = 1, invest = "green" }]

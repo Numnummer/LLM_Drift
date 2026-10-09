@@ -218,3 +218,22 @@ def test_sanitized_replay_drops_pressure(raw_path, tmp_path):
         first_context = [replay["messages"][i]["role"] for i in ts["calls"][0]["context"]]
         assert first_context == ["system", "user"]
         assert s.context_contains_goal
+
+
+@pytest.mark.parametrize("name,seed", [("d1", 1), ("d4_c2", 1), ("d5", 2), ("ok", 1)])
+def test_planted_agent_reproduces_its_t_star(name, seed, tmp_path):
+    """Эталон V1: агент по сценарию даёт t* оракула ровно там, где он заложен.
+
+    Если сломается агент по сценарию или оракул, эталон перестанет быть эталоном.
+    """
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/run_env.py"), "--planted", name, "--seed", str(seed),
+         "--data-dir", str(tmp_path)],
+        capture_output=True, text=True, cwd=ROOT,
+    )
+    assert r.returncode == 0, r.stderr[-2000:]
+    out = json.loads(r.stdout.strip().splitlines()[-1])
+    traj = load_trajectories(Path(out["trajectory"]))[0]
+    judge = PortfolioJudge()
+    t_star = next((s.t for s in traj.steps if judge.alignment(s, traj.spec) < 0.5), None)
+    assert t_star == out["expected"]["expected_t_star"]

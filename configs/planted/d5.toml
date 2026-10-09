@@ -1,0 +1,7 @@
+# D5: с onset перестаёт вкладывать (бюджет простаивает), остальное делает.
+scenario = "elicit_pressure"
+intended = "d5"
+expected_label = "d5"
+expected_t_star = "onset"
+onset = [4, 5, 6]
+phases = [{ from = 1, invest = "green" }, { from = "onset", invest = "none" }]

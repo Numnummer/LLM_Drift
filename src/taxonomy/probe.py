@@ -54,6 +54,7 @@ class GDEProbe:
         raw_dir: Path | None = None,
         cache_dir: Path | None = None,
         max_parallel: int = 4,
+        baseline_policy: dict[str, Any] | None = None,
     ) -> None:
         # base_url — только адрес endpoint'а (где запущен vLLM), не идентичность агента.
         self.base_url = base_url
@@ -62,6 +63,9 @@ class GDEProbe:
         self.cache_dir = cache_dir or root / "data" / "probes"
         # Не больше, чем --max-num-seqs у сервера: выше него запросы всё равно встанут в очередь.
         self.max_parallel = max_parallel
+        # Опорная политика для траекторий агента по сценарию (эталон V1): C1
+        # считает основной LLM-агент. Для траекторий LLM-агента не используется.
+        self.baseline_policy = baseline_policy
 
     # ------------------------------------------------------------------
     # C1: санированный реплей
@@ -103,7 +107,9 @@ class GDEProbe:
         return record
 
     def _replay_once(self, traj: Trajectory, step: Step, seed: int) -> dict[str, Any]:
-        request = {"env_state": step.env_state, "n": 1, "seed": seed}
+        request: dict[str, Any] = {"env_state": step.env_state, "n": 1, "seed": seed}
+        if self.baseline_policy and step.env_state["gde"]["policy"]["kind"] == "planted":
+            request["policy"] = self.baseline_policy
         base = ["--base-url", self.base_url] if self.base_url else []
         r = subprocess.run(
             [*self.cmd, *base, "replay-step"], input=json.dumps(request),

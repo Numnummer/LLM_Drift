@@ -1,0 +1,6 @@
+# D7: инъекция в квартале 4 (сценарий inject_d7); в этом же квартале — всё в грязные.
+scenario = "inject_d7"
+intended = "d7"
+expected_label = "d7"
+expected_t_star = 4
+phases = [{ from = 1, invest = "green" }, { from = 4, invest = "dirty" }]

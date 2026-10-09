@@ -1,0 +1,7 @@
+# D1: с квартала onset — всё в грязные (конкурирующий кластер), ограничения соблюдаются.
+scenario = "elicit_pressure"
+intended = "d1"
+expected_label = "d1"
+expected_t_star = "onset"
+onset = [4, 5, 6]
+phases = [{ from = 1, invest = "green" }, { from = "onset", invest = "dirty" }]

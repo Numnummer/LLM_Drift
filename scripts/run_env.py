@@ -111,6 +111,28 @@ def build(scenario_name: str, seed: int = 0) -> tuple[dict[str, Any], GoalSpec, 
     return gde, spec, sc["num_steps"]
 
 
+def planted(name: str, seed: int) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    """Агент по сценарию для эталона V1: сценарий, политика и ожидаемый ответ.
+
+    configs/planted/<name>.toml: scenario, onset (квартал начала поведения по
+    сиду: onset[seed-1]), phases (from — число или "onset"), intended (что
+    заложено), expected_label и expected_t_star (что должна дать процедура;
+    "onset" подставляется, "none" — отклонения нет).
+    """
+    cfg = load_toml(ROOT / "configs/planted" / f"{name}.toml")
+    onsets = cfg.get("onset", [0])
+    onset = onsets[(seed - 1) % len(onsets)]
+    plan = [{**ph, "from": onset if ph["from"] == "onset" else ph["from"]} for ph in cfg["phases"]]
+    t_star = cfg["expected_t_star"]
+    expected = {
+        "intended": cfg["intended"],
+        "expected_label": cfg["expected_label"],
+        "expected_t_star": None if t_star == "none" else (onset if t_star == "onset" else t_star),
+        "note": cfg.get("note", ""),
+    }
+    return cfg["scenario"], {"kind": "planted", "model": "planted", "plan": plan}, expected
+
+
 def policy_info(scripted: bool, agent_path: Path) -> tuple[dict[str, Any], str | None]:
     if scripted:
         return {"kind": "scripted", "model": "scripted"}, None
@@ -120,22 +142,30 @@ def policy_info(scripted: bool, agent_path: Path) -> tuple[dict[str, Any], str |
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--scenario", required=True)
+    ap.add_argument("--scenario", help="сценарий (не нужен при --planted: берётся из конфига)")
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--scripted", action="store_true", help="скриптовый агент без модели (проверка обвязки)")
+    ap.add_argument("--planted", help="агент по сценарию для эталона V1: имя в configs/planted/")
     ap.add_argument("--num-steps", type=int, help="переопределить num_steps сценария")
     ap.add_argument("--data-dir", type=Path, default=ROOT / "data")
     ap.add_argument("--agent", type=Path, default=ROOT / "configs/agent.toml",
                     help="конфиг агента; второй агент — свой файл и свой суффикс traj_id")
     args = ap.parse_args()
+    if not args.scenario and not args.planted:
+        ap.error("нужен --scenario или --planted")
 
+    expected = None
+    if args.planted:
+        args.scenario, info, expected = planted(args.planted, args.seed)
+        base_url = None
+    else:
+        info, base_url = policy_info(args.scripted, args.agent)
     gde, spec, num_steps = build(args.scenario, args.seed)
-    info, base_url = policy_info(args.scripted, args.agent)
     # Суффикс агента в traj_id: корпус привязан к модели, и траектории разных
     # агентов не должны перемешиваться в одном пуле (метки N1 и D5 модельные).
     stem = args.agent.stem.removeprefix("agent_")
     suffix = "_scripted" if args.scripted else ("" if stem == "agent" else f"_{stem}")
-    traj_id = f"{args.scenario}_s{args.seed}{suffix}"
+    traj_id = f"v1_{args.planted}_s{args.seed}" if args.planted else f"{args.scenario}_s{args.seed}{suffix}"
     raw_path = args.data_dir / "raw" / f"{traj_id}.json.gz"
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -172,6 +202,7 @@ def main() -> None:
         "max_prompt_tokens": max((m.get("prompt_tokens", 0) for m in metas), default=0),
         "completion_tokens": sum(m.get("completion_tokens", 0) for m in metas),
         "raw": str(raw_path),
+        **({"expected": expected} if expected else {}),
         "trajectory": str(traj_path),
     }, ensure_ascii=False))
 

@@ -50,8 +50,10 @@ def main() -> None:
     args = ap.parse_args()
 
     agent = tomllib.loads((ROOT / "configs/agent.toml").read_text(encoding="utf-8"))
+    # Для эталона V1 (агенты по сценарию) опорная политика C1 — основной агент.
+    baseline = {"kind": agent["kind"], "model": agent["model"], "sampling": agent["sampling"]}
     probe = GDEProbe(base_url=agent["base_url"], raw_dir=args.data_dir / "raw",
-                     cache_dir=args.data_dir / "probes")
+                     cache_dir=args.data_dir / "probes", baseline_policy=baseline)
     judge = PortfolioJudge()
     n_runs = DEFAULT_THRESHOLDS.probe_runs
     threshold = DEFAULT_THRESHOLDS.aligned_threshold
@@ -75,7 +77,9 @@ def main() -> None:
             print(f"{traj.traj_id} t={t}{mark}: среднее al {mean_al:.2f} -> C1 {verdict}"
                   f" ({time.monotonic() - start:.0f} с)")
             total_steps += 1
-        if args.requery:
+        # Перезапрос — вопрос самому агенту; агента по сценарию спросить нельзя,
+        # поэтому для эталона V1 N2 не проверяется (plan.md, фаза 2).
+        if args.requery and traj.model != "planted":
             probe.requery(traj, t_star)
 
     print(f"\nпроб посчитано: {total_steps}, всего {(time.monotonic() - started) / 60:.1f} мин")
