@@ -28,17 +28,30 @@ from taxonomy.judge import LLMJudge  # noqa: E402
 from taxonomy.probe import GDEProbe  # noqa: E402
 
 
+# Опорный агент C1 для эталона V1 (решение человека 2026-10-10): «scripted» —
+# аккуратный агент по сценарию, вкладывающий в зелёные; так V1 проверяет логику
+# дерева, а не способности конкретной LLM. «agent» — основной LLM-агент (Qwen);
+# его результат на V1 — отдельная строка о чувствительности C1 к силе агента.
+SCRIPTED_BASELINE = {"kind": "planted", "model": "planted", "plan": [{"from": 1, "invest": "green"}]}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", type=Path, default=ROOT / "data")
+    ap.add_argument("--baseline", choices=["agent", "scripted"], default="agent",
+                    help="опорный агент C1 для траекторий агента по сценарию (эталон V1)")
     ap.add_argument("--no-llm-judge", action="store_true",
                     help="без LLM-судьи: траектории, дошедшие до N2, не классифицируются (для эталона V1 не нужен)")
     args = ap.parse_args()
 
     agent = tomllib.loads((ROOT / "configs/agent.toml").read_text(encoding="utf-8"))
-    baseline = {"kind": agent["kind"], "model": agent["model"], "sampling": agent["sampling"]}
+    if args.baseline == "scripted":
+        baseline, cache = SCRIPTED_BASELINE, args.data_dir / "probes_scripted"
+    else:
+        baseline = {"kind": agent["kind"], "model": agent["model"], "sampling": agent["sampling"]}
+        cache = args.data_dir / "probes"
     probe = GDEProbe(base_url=agent["base_url"], raw_dir=args.data_dir / "raw",
-                     cache_dir=args.data_dir / "probes", baseline_policy=baseline)
+                     cache_dir=cache, baseline_policy=baseline)
     llm = None
     if not args.no_llm_judge:
         cfg = tomllib.loads((ROOT / "configs/judge.toml").read_text(encoding="utf-8"))
@@ -59,7 +72,7 @@ def main() -> None:
                          "evidence": list(v.evidence), "check": v.check_name, "rationale": v.rationale,
                          "passed_checks": list(result.passed_checks)})
         print(f"{traj.traj_id}: {v.label.value} t*={v.t_star} — {v.rationale}")
-    (args.data_dir / "verdicts.jsonl").write_text(
+    (args.data_dir / f"verdicts_{args.baseline}.jsonl").write_text(
         "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in verdicts), encoding="utf-8")
 
     key_path = args.data_dir / "expected.jsonl"
