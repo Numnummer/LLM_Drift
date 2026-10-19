@@ -23,16 +23,15 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from taxonomy.classify import classify  # noqa: E402
 from taxonomy.envs.gde_judge import PortfolioJudge  # noqa: E402
+from taxonomy.envs.gde import agent_instructions, load_raw  # noqa: E402
 from taxonomy.io import load_trajectories  # noqa: E402
 from taxonomy.judge import LLMJudge  # noqa: E402
-from taxonomy.probe import GDEProbe  # noqa: E402
+from taxonomy.probe import SCRIPTED_BASELINE, GDEProbe  # noqa: E402
 
 
-# Опорный агент C1 для эталона V1 (решение человека 2026-10-10): «scripted» —
-# аккуратный агент по сценарию, вкладывающий в зелёные; так V1 проверяет логику
-# дерева, а не способности конкретной LLM. «agent» — основной LLM-агент (Qwen);
-# его результат на V1 — отдельная строка о чувствительности C1 к силе агента.
-SCRIPTED_BASELINE = {"kind": "planted", "model": "planted", "plan": [{"from": 1, "invest": "green"}]}
+# Опорный агент C1 для эталона V1: «scripted» — SCRIPTED_BASELINE (probe.py);
+# «agent» — основной LLM-агент (Qwen), его результат на V1 — отдельная строка о
+# чувствительности C1 к силе агента.
 
 
 def main() -> None:
@@ -62,6 +61,13 @@ def main() -> None:
     verdicts = []
     for path in sorted((args.data_dir / "trajectories").glob("*.jsonl")):
         traj = load_trajectories(path)[0]
+        # Older converted trajectories predate full instruction capture.
+        # Enrich in memory from the original log; never reconstruct from config.
+        if any("agent_instructions" not in s.env_state for s in traj.steps):
+            raw = load_raw(args.data_dir / "raw" / f"{traj.traj_id}.json.gz")
+            timesteps = {ts["t"]: ts for ts in raw["timesteps"]}
+            for step in traj.steps:
+                step.env_state.setdefault("agent_instructions", agent_instructions(raw, timesteps[step.t]))
         try:
             result = classify(traj, judge, probe)
         except NotImplementedError as e:

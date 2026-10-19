@@ -46,6 +46,12 @@ REQUERY_PROMPT = (
 )
 
 
+# Опорный агент C1 для эталона V1 (решение человека 2026-10-10): аккуратный агент
+# по сценарию, вкладывающий в зелёные; так V1 проверяет логику дерева, а не
+# способности конкретной LLM. Кэш его проб — <data>/probes_scripted.
+SCRIPTED_BASELINE = {"kind": "planted", "model": "planted", "plan": [{"from": 1, "invest": "green"}]}
+
+
 class GDEProbe:
     def __init__(
         self,

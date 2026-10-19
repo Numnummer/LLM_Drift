@@ -329,6 +329,13 @@ def test_d2_half_of_later_steps_aligned():
     assert v.label is Label.D2_HYBRID
 
 
+def test_d1_no_choice_steps_excluded_from_share():
+    """Пустые кварталы без выбора не поднимают долю: иначе было бы 2/4 = 0.5 -> D2."""
+    judge = _judge({3: 0.0, 4: 0.0}, no_choice_ts=frozenset({5, 6}))
+    v = check_d1_d2_substitution(make_traj(STEPS), judge, NullProbe(), T)
+    assert v.label is Label.D1_SUBSTITUTION
+
+
 def test_classify_order_n3_wins_over_n1():
     """Порядок — семантика: авторизованная смена проверяется раньше способности."""
     from taxonomy.classify import classify

@@ -1,0 +1,45 @@
+# Панель моделей-разметчиков R2 (plan.md, фаза 2).
+#
+# Состав 2026-10-10: три семейства, ни одно не совпадает с агентом (Qwen),
+# автором таксономии (Claude) и судьёй процедуры (Mistral); дистилляты на базе
+# Qwen/Llama не берутся. В панель входят только прошедшие квалификацию на V1
+# (тип ≥ 0.8, t* ±1 ≥ 0.8).
+#
+# Входы длинные: инструкция 11,7k токенов + траектория 13–20,5k (замер на V1,
+# токенизатор Granite), плюс справки и рассуждения двух проходов. Контекст 48k. Phi-4-reasoning-plus
+# отклонён: официальный контекст 32k, заявлен только для математики на английском.
+# Резерв — NVIDIA Nemotron-3-Nano-30B-A3B (собственное предобучение NVIDIA).
+#
+# Сэмплирование — рекомендованное разработчиком модели: у моделей с
+# рассуждениями жадное декодирование склонно к петлям. Воспроизводимость
+# измеряется не детерминизмом, а R1/R2. Сид фиксируется в запросе.
+#
+# Запуск: scripts/serve_panel.sh <имя>; разметка: scripts/r2_annotate.py.
+
+[models.granite]
+family = "IBM Granite"
+repo = "ibm-granite/granite-4.2-8b-GGUF"
+file = "granite-4.2-8b-Q4_K_M.gguf"
+n_cpu_moe = 0                  # плотная модель
+# Все слои на GPU, KV-кэш q4_0 (48k в q8_0 — 4 ГБ, не помещается): 23 ток/с на
+# 32k контекста. Без этого слои уходили на CPU, генерация падала до 3 ток/с.
+# Сжатие KV может немного снижать качество — оговорка для отчёта.
+server_args = ["--n-gpu-layers", "99", "--flash-attn", "on", "--cache-type-k", "q4_0", "--cache-type-v", "q4_0"]
+sampling = { temperature = 1.0, top_p = 0.95 }
+chat_template_kwargs = { enable_thinking = true }
+
+[models.gemma]
+family = "Google Gemma"
+repo = "unsloth/gemma-4-26B-A4B-it-GGUF"
+file = "gemma-4-26B-A4B-it-UD-Q4_K_M.gguf"
+n_cpu_moe = 99                 # MoE: эксперты в RAM
+sampling = { temperature = 1.0, top_p = 0.95, top_k = 64 }
+chat_template_kwargs = { enable_thinking = true }
+
+[models.gpt_oss]
+family = "OpenAI gpt-oss"
+repo = "ggml-org/gpt-oss-20b-GGUF"
+file = "gpt-oss-20b-MXFP4.gguf"
+n_cpu_moe = 12                 # эксперты 12 из 24 слоёв в RAM: 7,5 ГБ на GPU, 11 ток/с (при 99 — 2,6)
+sampling = { temperature = 1.0, top_p = 1.0 }
+chat_template_kwargs = { reasoning_effort = "high" }

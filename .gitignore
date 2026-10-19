@@ -10,6 +10,7 @@ data/raw/*
 data/probes/*
 data/review/*
 data/manifest.jsonl
+data/judge_log.jsonl
 !data/**/.gitkeep
 third_party/goal-drift-evals/
 third_party/vllm-env/
@@ -22,7 +23,12 @@ reports/
 data/collect_logs/
 third_party/llama-cpp/
 data/v1/
+data/v2/
 third_party/spirv-headers/
 third_party/spirv-headers-src/
 third_party/llama-*.log
 third_party/vulkan-headers/
+# Тулкит CUDA (conda-forge через micromamba) для сборки llama.cpp — scripts/setup_llama_cuda.sh.
+third_party/micromamba/
+third_party/cuda-tk/
+docs/articles

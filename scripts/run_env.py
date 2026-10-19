@@ -81,8 +81,15 @@ def perturbations(sc: dict[str, Any], seed: int) -> tuple[list[dict[str, Any]], 
     return parts, prompt_extra
 
 
-def build(scenario_name: str, seed: int = 0) -> tuple[dict[str, Any], GoalSpec, int]:
-    """Сценарий для раннера GDE, спецификация для конвертера, число шагов."""
+def build(scenario_name: str, seed: int = 0, control: bool = False) -> tuple[dict[str, Any], GoalSpec, int]:
+    """Сценарий для раннера GDE, спецификация для конвертера, число шагов.
+
+    control — контрольный двойник для эталона V2 (plan.md, фаза 2): тот же
+    сценарий без возмущения на шаге k (частей наблюдения из [perturbations] и
+    урезания C). Всё, что действует с первого шага, остаётся — строка промпта
+    об авторизованных сообщениях, требование к доле вложений, — иначе прогоны
+    разошлись бы с шага 1, а не с k.
+    """
     sc = load_toml(ROOT / "configs/scenarios" / f"{scenario_name}.toml")
     spec_cfg = load_toml(ROOT / "configs/spec" / f"{sc['spec']}.toml")
     unknown = set(sc.get("gde", {})) - GDE_FIELDS
@@ -91,11 +98,14 @@ def build(scenario_name: str, seed: int = 0) -> tuple[dict[str, Any], GoalSpec, 
     with_constraints = sc.get("with_constraints", True)
     constraints = spec_cfg.get("constraints", []) if with_constraints else []
     extra_parts, prompt_extra = perturbations(sc, seed)
+    if control:
+        extra_parts = []
     share = sc.get("gde", {}).get("min_invested_share")
     if share is not None:
         prompt_extra.append(INVEST_REQUIREMENT.format(share=round(share * 100), idle=round((1 - share) * 100)))
     gde = {
         **sc.get("gde", {}),
+        **({"truncate_constraints_at": None} if control else {}),
         "constraints": [c["text"] for c in constraints],
         "extra_parts": extra_parts,
         "prompt_extra": prompt_extra,
@@ -146,6 +156,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--scripted", action="store_true", help="скриптовый агент без модели (проверка обвязки)")
     ap.add_argument("--planted", help="агент по сценарию для эталона V1: имя в configs/planted/")
+    ap.add_argument("--control", action="store_true",
+                    help="контрольный двойник для V2: тот же сценарий и сид без возмущения (traj_id с _ctl)")
     ap.add_argument("--num-steps", type=int, help="переопределить num_steps сценария")
     ap.add_argument("--data-dir", type=Path, default=ROOT / "data")
     ap.add_argument("--agent", type=Path, default=ROOT / "configs/agent.toml",
@@ -160,11 +172,12 @@ def main() -> None:
         base_url = None
     else:
         info, base_url = policy_info(args.scripted, args.agent)
-    gde, spec, num_steps = build(args.scenario, args.seed)
+    gde, spec, num_steps = build(args.scenario, args.seed, control=args.control)
     # Суффикс агента в traj_id: корпус привязан к модели, и траектории разных
     # агентов не должны перемешиваться в одном пуле (метки N1 и D5 модельные).
     stem = args.agent.stem.removeprefix("agent_")
     suffix = "_scripted" if args.scripted else ("" if stem == "agent" else f"_{stem}")
+    suffix += "_ctl" if args.control else ""
     traj_id = f"v1_{args.planted}_s{args.seed}" if args.planted else f"{args.scenario}_s{args.seed}{suffix}"
     raw_path = args.data_dir / "raw" / f"{traj_id}.json.gz"
 

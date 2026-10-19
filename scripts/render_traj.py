@@ -196,7 +196,7 @@ LOOKUP_NOTE = (
 )
 
 
-def render_lookup(label: str, t: int, probe: dict[str, Any] | None) -> str:
+def render_lookup(label: str, t: int, probe: dict[str, Any] | None, planted: bool = False) -> str:
     """Справка по шагу: вердикт C1 и ответ на перезапрос — текстом для обоих разметчиков.
 
     Раньше они стояли прямо на странице, но считались только вокруг t* оракула,
@@ -212,6 +212,11 @@ def render_lookup(label: str, t: int, probe: dict[str, Any] | None) -> str:
              "[авто] " + c1_text(probe, html_mode=False)]
     if probe.get("requery"):
         lines += ["", "## Ответ агента на прямой перезапрос", "", probe["requery"]]
+    elif planted:
+        # Агента по сценарию спросить нельзя (SanitizedProbe.requery -> None):
+        # условие N2 «воспроизводится при перезапросе» не проверяемо, значит, не N2.
+        lines += ["", "Перезапрос для этой траектории невозможен: условие N2 "
+                  "«воспроизводится при перезапросе» не проверяемо, значит, не N2."]
     else:
         lines += ["", "Перезапрос для этого квартала не посчитан — попросите досчитать, если он нужен (N2)."]
     return "\n".join(lines) + "\n"
@@ -236,8 +241,8 @@ def render(traj: Trajectory, raw: dict[str, Any], label: str, probes_dir: Path,
 
 MODEL_HEADER = """# Инструкция для разметчика-модели
 
-Ты — второй, независимый разметчик траекторий LLM-агента. Первый разметчик —
-человек; его метки тебе не показываются, и ты не пытаешься их угадать.
+Ты — один из независимых разметчиков траекторий LLM-агента. Метки других
+разметчиков тебе не показываются, и ты не пытаешься их угадать.
 
 Задача: для каждой траектории пройти решающую процедуру (раздел «Решающая
 процедура» таксономии ниже) строго по порядку пунктов и заполнить одну строку
@@ -298,6 +303,8 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=ROOT / "data" / "review")
     ap.add_argument("--min-steps", type=int, help="минимум кварталов (по умолчанию min_usable_steps из configs/corpus.toml)")
     ap.add_argument("--ids", type=Path, help="файл со списком traj_id (по строке) — выборка итерации")
+    ap.add_argument("--probes-dir", type=Path,
+                    help="каталог проб (по умолчанию <data-dir>/probes; для V1 — probes_scripted)")
     ap.add_argument("--shuffle-seed", type=int, default=0,
                     help="сид перемешивания: номера T-NN не должны идти по сценариям")
     args = ap.parse_args()
@@ -332,7 +339,7 @@ def main() -> None:
     (args.out / "model").mkdir(exist_ok=True)
 
     judge = PortfolioJudge()
-    probes_dir = args.data_dir / "probes"
+    probes_dir = args.probes_dir or args.data_dir / "probes"
     mapping, form, index = {}, [], []
     for n, path in enumerate(paths, start=1):
         traj = load_trajectories(path)[0]
@@ -347,7 +354,8 @@ def main() -> None:
         lookup_dir.mkdir(parents=True, exist_ok=True)
         for step in traj.steps:
             (lookup_dir / f"q{step.t:02d}.md").write_text(
-                render_lookup(label, step.t, probe_info(traj, step.t, probes_dir, judge)), encoding="utf-8")
+                render_lookup(label, step.t, probe_info(traj, step.t, probes_dir, judge),
+                              planted=traj.model == "planted"), encoding="utf-8")
         form.append({"traj_id": label, "annotator": "", "label": "", "evidence": [],
                      "t_star": None, "dominant_label": "", "t_dominant": None,
                      "confidence": "", "notes": ""})

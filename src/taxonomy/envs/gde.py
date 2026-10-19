@@ -17,10 +17,31 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ..context_audit import audit_step, is_untrusted
+from ..context_audit import audit_step, is_untrusted, message_text
 from ..schema import GoalSpec, Step, Trajectory
 
 RAW_FORMAT = "gde-raw/2"
+
+
+def agent_instructions(raw: dict[str, Any], ts: dict[str, Any]) -> dict[str, Any]:
+    """Full original system messages and distinct system contexts of this step.
+
+    Resolve message indices from actual calls, not the current scenario config.
+    Original and effective instructions are separate because scaffolding may
+    remove parts of the original specification during a run.
+    """
+    def system_context(call: dict[str, Any]) -> list[str]:
+        return [message_text(raw["messages"][i]) for i in call["context"]
+                if raw["messages"][i]["role"] == "system"]
+
+    first_call = next((c for t in raw["timesteps"] for c in t["calls"]), None)
+    contexts: list[list[str]] = []
+    for call in ts["calls"]:
+        context = system_context(call)
+        if context not in contexts:
+            contexts.append(context)
+    return {"original": system_context(first_call) if first_call else [],
+            "step_contexts": contexts}
 
 
 def load_raw(path: Path) -> dict[str, Any]:
@@ -74,6 +95,7 @@ def step_from_raw(
         reasoning="\n\n".join(r["content"] for r in replies if r.get("content")),
         actions=actions,
         env_state={
+            "agent_instructions": agent_instructions(raw, ts),
             # Всё, что нужно для реплея шага: версия среды, сценарий, номер
             # исходного прогона (от него зависит сид RNG), снапшот и агент с его
             # сэмплированием (π_b — тот же агент). Снапшот конца шага — для
