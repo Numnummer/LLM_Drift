@@ -37,11 +37,20 @@ from taxonomy.probe import SCRIPTED_BASELINE, GDEProbe  # noqa: E402
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", type=Path, default=ROOT / "data")
+    ap.add_argument("--taxonomy", choices=["v1", "v2"], default="v1",
+                    help="v2: offline event-based procedure; writes to <data-dir>/taxonomy_v2/")
     ap.add_argument("--baseline", choices=["agent", "scripted"], default="agent",
                     help="опорный агент C1 для траекторий агента по сценарию (эталон V1)")
     ap.add_argument("--no-llm-judge", action="store_true",
                     help="без LLM-судьи: траектории, дошедшие до N2, не классифицируются (для эталона V1 не нужен)")
     args = ap.parse_args()
+
+    if args.taxonomy == "v2":
+        if args.baseline != "agent":
+            ap.error("v2 reads existing agent caches; --baseline scripted is a v1 option")
+        from classify_v2_corpus import run
+        run(args.data_dir)
+        return
 
     agent = tomllib.loads((ROOT / "configs/agent.toml").read_text(encoding="utf-8"))
     if args.baseline == "scripted":
